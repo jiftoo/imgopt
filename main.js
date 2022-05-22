@@ -87,7 +87,14 @@ program.action(async (dir, options) => {
 		.map((p) => fs.statSync(path.join(dir, p)).size)
 		.reduce((acc, v) => acc + v, 0);
 
-	await Promise.all(fs.readdirSync(dir).map(async (p) => transform(path.parse(path.join(dir, p)), outputDir, options)));
+	const files = fs.readdirSync(dir);
+	for (let i = 0; i < files.length; i++) {
+		try {
+			await transform(path.parse(path.join(dir, files[i])), outputDir, options);
+		} catch (err) {
+			console.log(chalk.redBright("copying     (error)".padEnd(53, " ")), chalk.white(files[i]), chalk.redBright(err.message));
+		}
+	}
 
 	console.log(chalk.whiteBright(""));
 	console.log(
@@ -114,18 +121,23 @@ const formatSize = (bytes, pad = false) => {
 };
 
 const transform = async (filePath, outputDir, options) => {
+	if (!fs.existsSync(path.format(filePath))) {
+		console.log(chalk.white("skipping    (missing)".padEnd(53, " ")), chalk.white(filePath.name + filePath.ext));
+		return;
+	}
 	if (!supportedExtensions.includes(filePath.ext?.toLowerCase())) {
 		if (options.copyAll && fs.statSync(path.format(filePath)).isFile()) {
-			console.log(chalk.whiteBright("copying     (not supported)".padEnd(26, " ")), chalk.whiteBright(filePath.name + filePath.ext));
+			console.log(chalk.whiteBright("copying     (not supported)".padEnd(53, " ")), chalk.whiteBright(filePath.name + filePath.ext));
 			if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
 		} else {
-			console.log(chalk.white("skipping    (not supported)".padEnd(26, " ")), chalk.white(filePath.name + filePath.ext));
+			console.log(chalk.white("skipping    (not supported)".padEnd(53, " ")), chalk.white(filePath.name + filePath.ext));
 		}
 		return;
 	}
 	const outputExtension = options.format === "preserve" ? filePath.ext : "." + options.format;
 
 	const size = fs.statSync(path.format(filePath)).size;
+	// console.log("path:", path.format(filePath));
 	const shr = sharp(path.format(filePath));
 	const metadata = await shr.metadata();
 	const noQualityAndFormatChange = options.quality === undefined && options.format === "preserve";
@@ -143,8 +155,8 @@ const transform = async (filePath, outputDir, options) => {
 				console.log(`error ${err}`, filePath.name + filePath.ext);
 				rej(err);
 			} else {
-				totalDirSizeAfter += buffer.byteLength;
 				if (size < buffer.byteLength || (!widthChange && noQualityAndFormatChange)) {
+					totalDirSizeAfter += size;
 					if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
 					if (!widthChange && noQualityAndFormatChange) {
 						console.log(
@@ -154,11 +166,22 @@ const transform = async (filePath, outputDir, options) => {
 							filePath.name + filePath.ext
 						);
 					} else {
-						console.log(chalk.magenta("transformed (copy)".padEnd(27, " ")), formatSize(size, true) + ">", formatSize(info.size, false), filePath.name + filePath.ext);
+						console.log(
+							chalk.magenta("transformed (copy)".padEnd(27, " ")),
+							formatSize(size, true) + ">",
+							formatSize(info.size, false).padEnd(10, " "),
+							filePath.name + filePath.ext
+						);
 					}
 				} else {
+					totalDirSizeAfter += buffer.byteLength;
 					if (!options.dryRun) fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
-					console.log(chalk.green("transformed".padEnd(34, " ")), formatSize(size, true) + ">", formatSize(info.size, false), filePath.name + filePath.ext);
+					console.log(
+						chalk.green("transformed".padEnd(27, " ")),
+						formatSize(size, true) + ">",
+						formatSize(info.size, false).padEnd(10, " "),
+						filePath.name + filePath.ext
+					);
 				}
 				res();
 			}
