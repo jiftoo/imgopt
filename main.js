@@ -19,6 +19,8 @@ const prompt = (msg) => {
 
 const supportedExtensions = [".jpg", ".jpeg", ".webp", ".png"];
 
+let totalDirSizeAfter = 0; // updated in loop
+
 const program = new Command();
 program.showHelpAfterError(true);
 program
@@ -55,23 +57,26 @@ program.action(async (dir, options) => {
 		abort(`${dir} contains no images.`);
 	}
 
-	let outputDir = path.resolve(path.join(dir, "output"));
-	if (fs.existsSync(outputDir) && fs.readdirSync(outputDir).length !== 0) {
-		console.log(`${outputDir} is not empty`);
-		if (options.clear) {
-			fs.readdirSync(outputDir).forEach((p) => fs.unlinkSync(path.join(outputDir, p)));
-			console.log("Cleared", outputDir);
-		} else {
-			if (!prompt("Continue?")) {
-				exit(0);
+	let outputDir = "none";
+	if (!options.dryRun) {
+		outputDir = path.resolve(path.join(dir, "output"));
+		if (fs.existsSync(outputDir) && fs.readdirSync(outputDir).length !== 0) {
+			console.log(`${outputDir} is not empty`);
+			if (options.clear) {
+				fs.readdirSync(outputDir).forEach((p) => fs.unlinkSync(path.join(outputDir, p)));
+				console.log("Cleared", outputDir);
+			} else {
+				if (!prompt("Continue?")) {
+					exit(0);
+				}
 			}
 		}
+		try {
+			fs.mkdirSync(outputDir);
+		} catch (_) {}
+		console.log("Output directory:", outputDir);
+		console.log();
 	}
-	try {
-		fs.mkdirSync(outputDir);
-	} catch (_) {}
-	console.log("Output directory:", outputDir);
-	console.log();
 
 	const totalDirSizeBefore = fs
 		.readdirSync(dir)
@@ -80,12 +85,6 @@ program.action(async (dir, options) => {
 		.reduce((acc, v) => acc + v, 0);
 
 	await Promise.all(fs.readdirSync(dir).map(async (p) => transform(path.parse(path.join(dir, p)), outputDir, options)));
-
-	const totalDirSizeAfter = fs
-		.readdirSync(outputDir)
-		.filter((p) => supportedExtensions.includes(path.parse(p).ext))
-		.map((p) => fs.statSync(path.join(outputDir, p)).size)
-		.reduce((acc, v) => acc + v, 0);
 
 	console.log(
 		"Total size before:",
@@ -136,11 +135,12 @@ const transform = async (filePath, outputDir, options) => {
 				console.log(`error ${err}`, filePath.name + filePath.ext);
 				rej(err);
 			} else {
+				totalDirSizeAfter += buffer.byteLength;
 				if (size < buffer.byteLength || (!widthChange && noQualityAndFormatChange)) {
-					fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
+					if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
 					console.log("transformed (copy)", formatSize(size, true), "->", formatSize(info.size, true), filePath.name + filePath.ext);
 				} else {
-					fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
+					if (!options.dryRun) fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
 					console.log("transformed       ", formatSize(size, true), "->", formatSize(info.size, true), filePath.name + filePath.ext);
 				}
 				res();
