@@ -6,6 +6,7 @@ import path from "path";
 import {exit} from "process";
 import _prompt_sync from "prompt-sync";
 import {Command} from "commander";
+import chalk from "chalk";
 const prompt_sync = _prompt_sync({sigint: true});
 
 const abort = (msg) => {
@@ -31,7 +32,9 @@ program
 	.option("--quality <0-100>", "Output quality (default: 85)")
 	.option("--max-width <number>", "Limit output width")
 	.option("--dry-run", "Perform a dry run", false)
-	.option("--clear", "Clear the output directory");
+	.option("--clear", "Clear the output directory")
+	.option("--copy-all", "Copy all files into the output directory")
+	.option("-y --yes", "Bypass [y/n]");
 program.action(async (dir, options) => {
 	dir = path.resolve(dir);
 	if (options.quality !== undefined && (isNaN(+options.quality) || options.quality < 0 || options.quality > 100)) {
@@ -66,7 +69,7 @@ program.action(async (dir, options) => {
 				fs.readdirSync(outputDir).forEach((p) => fs.unlinkSync(path.join(outputDir, p)));
 				console.log("Cleared", outputDir);
 			} else {
-				if (!prompt("Continue?")) {
+				if (!(options.y || options.yes) && !prompt("Continue?")) {
 					exit(0);
 				}
 			}
@@ -86,11 +89,11 @@ program.action(async (dir, options) => {
 
 	await Promise.all(fs.readdirSync(dir).map(async (p) => transform(path.parse(path.join(dir, p)), outputDir, options)));
 
+	console.log(chalk.whiteBright(""));
 	console.log(
-		"Total size before:",
-		formatSize(totalDirSizeBefore),
-		"after:",
-		formatSize(totalDirSizeAfter),
+		"Total size before:".padEnd(27, " "),
+		chalk.yellowBright(formatSize(totalDirSizeBefore)) + "----->",
+		chalk.greenBright(formatSize(totalDirSizeAfter)),
 		`(${+((1 - totalDirSizeAfter / totalDirSizeBefore) * 100).toFixed(3)}% reduction)`
 	);
 });
@@ -99,20 +102,25 @@ const formatSize = (bytes, pad = false) => {
 	let f;
 	if (bytes < 1000) {
 		f = bytes.toString();
-		return f + " b " + (pad ? " ".repeat(10 - f.length) : "");
+		return f + " b  " + (pad ? "-".repeat(9 - f.length) : "");
 	}
 	const kb = bytes / 1000;
 	if (kb < 1000) {
 		f = kb.toFixed(2);
-		return f + " Kb" + (pad ? " ".repeat(10 - f.length) : "");
+		return f + " Kb " + (pad ? "-".repeat(9 - f.length) : "");
 	}
 	f = (kb / 1000).toFixed(2);
-	return f + " Mb" + (pad ? " ".repeat(10 - f.length) : "");
+	return f + " Mb " + (pad ? "-".repeat(9 - f.length) : "");
 };
 
 const transform = async (filePath, outputDir, options) => {
-	if (!supportedExtensions.includes(filePath.ext)) {
-		console.log(filePath.name + filePath.ext + ": skipping (not supported)");
+	if (!supportedExtensions.includes(filePath.ext?.toLowerCase())) {
+		if (options.copyAll && fs.statSync(path.format(filePath)).isFile()) {
+			console.log(chalk.whiteBright("copying     (not supported)".padEnd(26, " ")), chalk.whiteBright(filePath.name + filePath.ext));
+			if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
+		} else {
+			console.log(chalk.white("skipping    (not supported)".padEnd(26, " ")), chalk.white(filePath.name + filePath.ext));
+		}
 		return;
 	}
 	const outputExtension = options.format === "preserve" ? filePath.ext : "." + options.format;
@@ -138,10 +146,19 @@ const transform = async (filePath, outputDir, options) => {
 				totalDirSizeAfter += buffer.byteLength;
 				if (size < buffer.byteLength || (!widthChange && noQualityAndFormatChange)) {
 					if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
-					console.log("transformed (copy)", formatSize(size, true), "->", formatSize(info.size, true), filePath.name + filePath.ext);
+					if (!widthChange && noQualityAndFormatChange) {
+						console.log(
+							chalk.magenta("transformed (no changes)".padEnd(27, " ")),
+							formatSize(size, true) + ">",
+							formatSize(info.size, false),
+							filePath.name + filePath.ext
+						);
+					} else {
+						console.log(chalk.magenta("transformed (copy)".padEnd(27, " ")), formatSize(size, true) + ">", formatSize(info.size, false), filePath.name + filePath.ext);
+					}
 				} else {
 					if (!options.dryRun) fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
-					console.log("transformed       ", formatSize(size, true), "->", formatSize(info.size, true), filePath.name + filePath.ext);
+					console.log(chalk.green("transformed".padEnd(34, " ")), formatSize(size, true) + ">", formatSize(info.size, false), filePath.name + filePath.ext);
 				}
 				res();
 			}
