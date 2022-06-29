@@ -38,7 +38,6 @@ program
 	.option("--copy-all", "Copy all files into the output directory")
 	.option("-y --yes", "Bypass [y/n] prompts");
 program.action(async (dir, options) => {
-	console.log(options.o, options.output);
 	dir = path.resolve(dir);
 	if (options.quality !== undefined && (isNaN(+options.quality) || options.quality < 0 || options.quality > 100)) {
 		abort("--quality has to be a number in range 0-100");
@@ -65,7 +64,11 @@ program.action(async (dir, options) => {
 
 	let outputDir = "none";
 	if (!options.dryRun) {
-		outputDir = path.resolve(path.join(dir, "output"));
+		if (path.isAbsolute(options.output)) {
+			outputDir = path.normalize(options.output);
+		} else {
+			outputDir = path.resolve(path.join(process.cwd(), path.normalize(options.output)));
+		}
 		if (fs.existsSync(outputDir) && fs.readdirSync(outputDir).length !== 0) {
 			console.log(`${outputDir} is not empty`);
 			if (options.clear) {
@@ -78,7 +81,7 @@ program.action(async (dir, options) => {
 			}
 		}
 		try {
-			fs.mkdirSync(outputDir);
+			fs.mkdirSync(outputDir, {recursive: true});
 		} catch (_) {}
 		console.log("Output directory:", outputDir);
 		console.log();
