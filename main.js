@@ -26,16 +26,19 @@ const program = new Command();
 program.showHelpAfterError(true);
 program
 	.name("imgopt")
-	.version("1.0.0")
+	.version("1.0.1")
+	.description("optimise all images in a folder. created by jiftoo")
 	.argument("path", "path to folder")
+	.option("-o --output <path>", "Output directory", "./output")
 	.option("--format <png|jpg|webp|preserve>", "Output format ", "preserve")
 	.option("--quality <0-100>", "Output quality (default: 85)")
 	.option("--max-width <number>", "Limit output width")
-	.option("--dry-run", "Perform a dry run", false)
+	.option("--dry-run", "Perform a dry run (no file system changes)", false)
 	.option("--clear", "Clear the output directory")
 	.option("--copy-all", "Copy all files into the output directory")
-	.option("-y --yes", "Bypass [y/n]");
+	.option("-y --yes", "Bypass [y/n] prompts");
 program.action(async (dir, options) => {
+	console.log(options.o, options.output);
 	dir = path.resolve(dir);
 	if (options.quality !== undefined && (isNaN(+options.quality) || options.quality < 0 || options.quality > 100)) {
 		abort("--quality has to be a number in range 0-100");
