@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import sharp from "sharp";
-import fs, {copyFileSync} from "fs";
+import fs from "fs";
 import path from "path";
 import {exit} from "process";
 import _prompt_sync from "prompt-sync";
