@@ -26,7 +26,7 @@ const program = new Command();
 program.showHelpAfterError(true);
 program
 	.name("imgopt")
-	.version("1.0.1")
+	.version("1.0.2")
 	.description("optimise all images in a folder. created by jiftoo")
 	.argument("path", "path to folder")
 	.option("-o --output <path>", "Output directory", "./output")
@@ -146,10 +146,8 @@ const transform = async (filePath, outputDir, options) => {
 	// console.log("path:", path.format(filePath));
 	const shr = sharp(path.format(filePath));
 	const metadata = await shr.metadata();
-	const noQualityAndFormatChange = options.quality === undefined && options.format === "preserve";
-	if (!noQualityAndFormatChange) {
-		shr.toFormat(options.format === "preserve" ? filePath.ext.replace(".", "") : options.format, {quality: options.quality ?? 85});
-	}
+	const notFormatChange = options.format === "preserve";
+	shr.toFormat(options.format === "preserve" ? filePath.ext.replace(".", "") : options.format, {quality: options.quality ?? 85});
 	const widthChange = options.maxWidth && metadata.width > options.maxWidth;
 	if (widthChange) {
 		shr.resize(options.maxWidth, null, {fit: "inside"});
@@ -161,27 +159,21 @@ const transform = async (filePath, outputDir, options) => {
 				console.log(`error ${err}`, filePath.name + filePath.ext);
 				rej(err);
 			} else {
-				if (size < buffer.byteLength || (!widthChange && noQualityAndFormatChange)) {
+				if (options.dryRun) {
+                    totalDirSizeAfter += buffer.byteLength;
+					console.log(chalk.magenta("transformed (dry run)".padEnd(27, " ")), formatSize(size, true) + ">", formatSize(info.size, false), filePath.name + filePath.ext);
+				} else if (size < buffer.byteLength) {
 					totalDirSizeAfter += size;
-					if (!options.dryRun) fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
-					if (!widthChange && noQualityAndFormatChange) {
-						console.log(
-							chalk.magenta("transformed (no changes)".padEnd(27, " ")),
-							formatSize(size, true) + ">",
-							formatSize(info.size, false),
-							filePath.name + filePath.ext
-						);
-					} else {
-						console.log(
-							chalk.magenta("transformed (copy)".padEnd(27, " ")),
-							formatSize(size, true) + ">",
-							formatSize(info.size, false).padEnd(10, " "),
-							filePath.name + filePath.ext
-						);
-					}
+					fs.copyFileSync(path.format(filePath), path.join(outputDir, filePath.name + filePath.ext));
+					console.log(
+						chalk.magenta("transformed (copy)".padEnd(27, " ")),
+						formatSize(size, true) + ">",
+						formatSize(info.size, false).padEnd(10, " "),
+						filePath.name + filePath.ext
+					);
 				} else {
 					totalDirSizeAfter += buffer.byteLength;
-					if (!options.dryRun) fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
+					fs.writeFileSync(path.join(outputDir, filePath.name + outputExtension), buffer);
 					console.log(
 						chalk.green("transformed".padEnd(27, " ")),
 						formatSize(size, true) + ">",
