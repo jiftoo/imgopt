@@ -26,7 +26,7 @@ const program = new Command();
 program.showHelpAfterError(true);
 program
 	.name("imgopt")
-	.version("1.0.2")
+	.version("1.0.3")
 	.description("optimise all images in a folder. created by jiftoo")
 	.argument("path", "path to folder")
 	.option("-o --output <path>", "Output directory", "./output")
