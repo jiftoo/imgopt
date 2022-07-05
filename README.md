@@ -1,4 +1,4 @@
-![GitHub Repo stars](https://img.shields.io/github/stars/jiftoo/imgopt?style=social)
+[![GitHub Repo stars](https://img.shields.io/github/stars/jiftoo/imgopt?style=social)](https://github.com/jiftoo/imgopt)
 
 # Welcome to `imgopt`!
 This cli tool is inspired by the awesome [expo-optimize](https://www.npmjs.com/package/expo-optimize) tool. Unlike the former, imgopt allows the user to convert images to other formats, or limit their width outside of an npm project and without the need to install the `sharp-cli` package.
