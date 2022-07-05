@@ -11,7 +11,15 @@
 		"image",
 		"optimization"
 	],
-	"author": "",
+	"homepage": "https://github.com/jiftoo/imgopt",
+	"bugs": {
+		"url": "https://github.com/jiftoo/imgopt/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jiftoo/imgopt"
+	},
+	"author": "jiftoo",
 	"license": "Apache-2.0",
 	"dependencies": {
 		"chalk": "^5.0.1",
